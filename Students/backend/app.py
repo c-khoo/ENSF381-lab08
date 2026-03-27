@@ -58,6 +58,87 @@ users = deepcopy(SEEDED_USERS)
 #   Exercise2
 # - POST /predict_house_price
 
+@app.route('/users', methods=['GET'])
+def get_users():
+    return jsonify(list(users.values())), 200
+
+@app.route('/users', methods=['POST'])
+def create_user():
+    user_id = request.json.get('id')
+    if user_id in users.keys():
+        return jsonify({"message": f"User {user_id} already exists."}), 409
+    first_name = request.json.get('first_name')
+    user_group = request.json.get('user_group')
+
+    if not user_id:
+        return jsonify({"message": "ID cannot be empty."}), 400
+
+    if not first_name:
+        return jsonify({"message": "Name field cannot be empty."}), 400
+    
+    if not user_group:
+        return jsonify({"message": "User group field cannot be empty."}), 400
+
+    new_user = {"id": user_id, "first_name": first_name, "user_group": user_group}
+    users[user_id] = new_user
+    return jsonify({"id": user_id, "first_name": first_name, "user_group": user_group, "message": f"Created user {user_id}."}), 201
+
+@app.route('/users/<user_id>', methods=['PUT'])
+def update_user(user_id):
+    data = request.get_json()
+    first_name = data['first_name']
+    user_group = data['user_group']
+    
+    if not first_name:
+        return jsonify({"message": "Name field cannot be empty."}), 400
+    
+    if not user_group:
+        return jsonify({"message": "User group field cannot be empty."}), 400
+    
+    if user_id not in users.keys():
+        return jsonify({"message": f"User {user_id} was not found."}), 404
+    
+    users[user_id] = {"id": user_id, "first_name": first_name, "user_group": user_group}
+    return jsonify({"id": user_id, "first_name": first_name, "user_group": user_group, "message": f"Updated user {user_id}."}), 200
+
+@app.route('/users/<user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    if user_id not in users.keys():
+        return jsonify({"message": f"User {user_id} was not found."}), 404
+    del users[user_id]
+    return jsonify({"message": f"Deleted user {user_id}."}), 200
+
+# Exercise 2
+@app.route('/predict_house_price', methods=['POST'])
+def predict_house_price():
+
+    model = joblib.load(MODEL_PATH)
+    data = request.json
+    has_pets = bool(data.get('pets', False))
+    cats = has_pets
+    dogs = has_pets
+    sample_data = [
+        data['city'],
+        data['province'],
+        float(data['latitude']),
+        float(data['longitude']),
+        data['lease_term'],
+        data['type'],
+        float(data['beds']),
+        float(data['baths']),
+        float(data['sq_feet']),
+        data['furnishing'],
+        data['smoking'],
+        cats,
+        dogs
+    ]
+    sample_df = pd.DataFrame([sample_data], columns=[
+    'city', 'province', 'latitude', 'longitude', 'lease_term',
+    'type', 'beds', 'baths', 'sq_feet', 'furnishing',
+    'smoking', 'cats', 'dogs'
+    ])
+    predicted_price = model.predict(sample_df)[0]
+    return jsonify({"predicted_price": predicted_price}), 200
 
 if __name__ == "__main__":
     app.run(debug=True, port=5050)
